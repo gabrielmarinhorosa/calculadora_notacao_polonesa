@@ -9,6 +9,12 @@ typedef struct no{
     struct no *proximo;   // Ponteiro para o próximo nó
 }No;
 
+// Estrutura para pilha de operadores
+typedef struct no_op {
+    char operador;
+    struct no_op *proximo;
+} NoOp;
+
 // Função para adicionar um elemento no topo da pilha
 No* empilhar(No *pilha, float num){
     No *novo = malloc(sizeof(No));    // Aloca memória para novo nó
@@ -33,6 +39,41 @@ No* desempilhar(No **pilha){
     else
         printf("Pilha vazia");
     return remover;
+}
+
+// Função para empilhar operador
+NoOp* empilhar_op(NoOp *pilha, char op) {
+    NoOp *novo = malloc(sizeof(NoOp));
+    if(novo) {
+        novo->operador = op;
+        novo->proximo = pilha;
+        return novo;
+    }
+    return NULL;
+}
+
+// Função para desempilhar operador
+NoOp* desempilhar_op(NoOp **pilha) {
+    NoOp *remover = NULL;
+    if(*pilha) {
+        remover = *pilha;
+        *pilha = remover->proximo;
+    }
+    return remover;
+}
+
+// Função para verificar precedência dos operadores
+int precedencia(char op) {
+    switch(op) {
+        case '+':
+        case '-':
+            return 1;
+        case '*':
+        case '/':
+            return 2;
+        default:
+            return 0;
+    }
 }
 
 // Função que realiza as operações matemáticas
@@ -89,16 +130,106 @@ float resolver_expressao(char x[]){
     return num;
 }
 
-// Função principal do programa
-int main(){
-    char exp[50];    // Array para armazenar a expressão
-    // Solicita entrada do usuário
-    printf("Digite a expressao em notacao polonesa (ex: 1 2 + 3 * 4 +): ");
-    fgets(exp, sizeof(exp), stdin);    // Lê a entrada
-    exp[strcspn(exp, "\n")] = 0;       // Remove caractere de nova linha
+// Função para converter expressão infixa para posfixa
+void converter_para_posfixa(char *infixa, char *posfixa) {
+    NoOp *pilha = NULL;
+    int j = 0;
     
-    // Calcula e mostra o resultado
-    float resultado = resolver_expressao(exp);
-    printf("Resultado: %f\n", resultado);
+    for(int i = 0; infixa[i] != '\0'; i++) {
+        // Se for número ou ponto decimal, copia para saída
+        if((infixa[i] >= '0' && infixa[i] <= '9') || infixa[i] == '.') {
+            while((infixa[i] >= '0' && infixa[i] <= '9') || infixa[i] == '.') {
+                posfixa[j++] = infixa[i++];
+            }
+            posfixa[j++] = ' ';
+            i--;
+        }
+        // Se for parêntese de abertura, empilha
+        else if(infixa[i] == '(') {
+            pilha = empilhar_op(pilha, infixa[i]);
+        }
+        // Se for parêntese de fechamento
+        else if(infixa[i] == ')') {
+            while(pilha && pilha->operador != '(') {
+                posfixa[j++] = pilha->operador;
+                posfixa[j++] = ' ';
+                NoOp *temp = desempilhar_op(&pilha);
+                free(temp);
+            }
+            if(pilha && pilha->operador == '(') {
+                NoOp *temp = desempilhar_op(&pilha);
+                free(temp);
+            }
+        }
+        // Se for operador
+        else if(infixa[i] == '+' || infixa[i] == '-' || 
+                infixa[i] == '*' || infixa[i] == '/') {
+            while(pilha && pilha->operador != '(' && 
+                  precedencia(pilha->operador) >= precedencia(infixa[i])) {
+                posfixa[j++] = pilha->operador;
+                posfixa[j++] = ' ';
+                NoOp *temp = desempilhar_op(&pilha);
+                free(temp);
+            }
+            pilha = empilhar_op(pilha, infixa[i]);
+        }
+    }
+    
+    // Desempilha operadores restantes
+    while(pilha) {
+        if(pilha->operador != '(') {
+            posfixa[j++] = pilha->operador;
+            posfixa[j++] = ' ';
+        }
+        NoOp *temp = desempilhar_op(&pilha);
+        free(temp);
+    }
+    
+    posfixa[j] = '\0';
+}
+
+// Função principal do programa
+int main() {
+    int opcao;
+    char exp[100];
+    
+    do {
+        printf("\nEscolha uma opção:\n");
+        printf("1 - Calcular expressão em notação polonesa\n");
+        printf("2 - Converter expressão matemática para notação polonesa\n");
+        printf("0 - Sair\n");
+        printf("Opção: ");
+        scanf("%d", &opcao);
+        getchar(); // Limpa o buffer do teclado
+        
+        switch(opcao) {
+            case 1:
+                printf("Digite a expressao em notacao polonesa (ex: 1 2 + 3 * 4 +): ");
+                fgets(exp, sizeof(exp), stdin);
+                exp[strcspn(exp, "\n")] = 0;
+                
+                float resultado = resolver_expressao(exp);
+                printf("Resultado: %f\n", resultado);
+                break;
+                
+            case 2:
+                printf("Digite a expressão matemática (ex: (1 + 2) * 3 + 4): ");
+                fgets(exp, sizeof(exp), stdin);
+                exp[strcspn(exp, "\n")] = 0;
+                
+                char posfixa[100];
+                converter_para_posfixa(exp, posfixa);
+                printf("Expressão em notação polonesa: %s\n", posfixa);
+                break;
+                
+            case 0:
+                printf("Saindo...\n");
+                break;
+                
+            default:
+                printf("Opção inválida!\n");
+        }
+    } while (opcao != 0);
+    
     return 0;
 }
